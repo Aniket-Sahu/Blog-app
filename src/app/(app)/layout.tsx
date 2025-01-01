@@ -1,25 +1,22 @@
 import type { Metadata } from "next";
 import { Inter, Geist, Geist_Mono } from "next/font/google";
-import './globals.css'
-import { Toaster } from "@/components/ui/toaster";
-import AuthProvider from "@/context/AuthProvider";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
-  display: "swap", // Ensures consistency
+  display: "swap", 
 });
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-  display: "swap", // Ensures consistency
+  display: "swap", 
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
-  display: "swap", // Ensures consistency
+  display: "swap", 
 });
 
 
@@ -35,14 +32,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={inter.variable}>
-      <AuthProvider>
         <body
           className={`${inter.className} ${geistSans.variable} ${geistMono.variable} antialiased`}
         >
-          {children}
-          <Toaster />
+          {children}     
         </body>
-      </AuthProvider>
     </html>
   );
 }

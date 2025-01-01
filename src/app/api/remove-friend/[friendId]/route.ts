@@ -1,0 +1,52 @@
+import dbConnect from "@/lib/dbConnect";
+import { getServerSession, User } from "next-auth";
+import { authOptions } from "../../auth/[...nextauth]/options";
+import mongoose from "mongoose";
+import UserModel from "@/model/User";
+
+export async function DELETE(
+    request: Request,
+    { params }: { params:  Promise<{ friendId: string }> }
+  ) {
+    await dbConnect();
+    const { friendId } = await params;
+    try {
+      const session = await getServerSession(authOptions);
+      const user: User = session?.user as User;
+  
+      if (!session || !user) {
+        return new Response(
+          JSON.stringify({ success: false, message: "Not authenticated" }),
+          { status: 401 }
+        );
+      }
+  
+      const userId = new mongoose.Types.ObjectId(user._id);
+      const friendIdObj = new mongoose.Types.ObjectId(friendId);
+  
+      await Promise.all([
+        UserModel.findByIdAndUpdate(
+          userId,
+          { $pull: { friends: friendIdObj } },
+          { new: true }
+        ),
+        UserModel.findByIdAndUpdate(
+          friendIdObj,
+          { $pull: { friends: userId } }, 
+          { new: true }
+        )
+      ]);    
+  
+      return new Response(
+        JSON.stringify({ success: true, message: "Friend removed successfully" }),
+        { status: 200 }
+      );
+    } catch (error) {
+      console.error("Error removing friend:", error);
+      return new Response(
+        JSON.stringify({ success: false, message: "Internal Server Error" }),
+        { status: 500 }
+      );
+    }
+  }
+  
