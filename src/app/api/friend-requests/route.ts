@@ -19,14 +19,14 @@ export async function GET(request: Request) {
     }
 
     const userId = new mongoose.Types.ObjectId(user._id);
-    const friendReqs = await FriendRequest.find({ receiverId: userId })
-      .populate("senderId", "username") 
+    const friendReqs = await FriendRequest.find({
+      receiverId: userId,
+      status: "pending",
+    })
+      .populate("senderId", "username")
       .exec();
 
-    return new Response(
-      JSON.stringify({ friendReqs }),
-      { status: 200 }
-    );
+    return new Response(JSON.stringify({ friendReqs }), { status: 200 });
   } catch (error) {
     console.error("Error fetching friend requests:", error);
     return new Response(

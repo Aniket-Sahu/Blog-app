@@ -67,10 +67,15 @@ export async function PATCH(
       );
     }
 
+    console.log(userProfile.privacy);
+    console.log(isPublic);
+    
     userProfile.username = username;
     userProfile.bio = bio;
     userProfile.privacy = isPublic ? "public" : "private";
     await userProfile.save();
+
+    console.log(userProfile.privacy);
 
     return new Response(
       JSON.stringify({

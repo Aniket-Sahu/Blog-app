@@ -54,7 +54,8 @@ export async function POST(request: Request) {
       );
     }
 
-    if (isPublic) {
+    // Case where a private user sends a request to a public user: directly add as friends
+    if (user.privacy === "private" && targetUser.privacy === "public") {
       if (user.friends.includes(toUserId)) {
         return new Response(
           JSON.stringify({ success: false, message: "Already friends" }),
@@ -72,7 +73,10 @@ export async function POST(request: Request) {
         JSON.stringify({ success: true, message: "Friend added successfully" }),
         { status: 200 }
       );
-    } else {
+    }
+
+    // If both users have private accounts, create a friend request
+    if (user.privacy === "private" && targetUser.privacy === "private") {
       const existingRequest = await FriendRequest.findOne({
         senderId: userObjectId,
         receiverId: toUserObjectId,
@@ -99,6 +103,57 @@ export async function POST(request: Request) {
         { status: 200 }
       );
     }
+
+    // Case where a public user sends a friend request to a private user
+    if (user.privacy === "public" && targetUser.privacy === "private") {
+      const existingRequest = await FriendRequest.findOne({
+        senderId: userObjectId,
+        receiverId: toUserObjectId,
+      });
+
+      if (existingRequest) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: "Friend request already sent",
+          }),
+          { status: 400 }
+        );
+      }
+
+      await FriendRequest.create({
+        senderId: userObjectId,
+        receiverId: toUserObjectId,
+        status: "pending",
+      });
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Friend request sent" }),
+        { status: 200 }
+      );
+    }
+
+    // Default case: Public user sends friend request to another public user (Friend request creation)
+    if (user.privacy === "public" && targetUser.privacy === "public") {
+      if (user.friends.includes(toUserId)) {
+        return new Response(
+          JSON.stringify({ success: false, message: "Already friends" }),
+          { status: 400 }
+        );
+      }
+
+      user.friends.push(toUserObjectId);
+      targetUser.friends.push(userObjectId);
+
+      await user.save();
+      await targetUser.save();
+
+      return new Response(
+        JSON.stringify({ success: true, message: "Friend added successfully" }),
+        { status: 200 }
+      );
+    }
+
   } catch (error) {
     console.error("Error handling friend action:", error);
     return new Response(

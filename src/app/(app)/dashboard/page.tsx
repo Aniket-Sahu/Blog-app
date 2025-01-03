@@ -1,9 +1,6 @@
 "use client";
 
-// Manage likes/dislikes UI
-// Friend reqs manage
-// comments
-// share
+// now what's left is comments, and share (which will be a copy link until later changes) -> Do it on 4th Jan 
 
 import { useToast } from "@/hooks/use-toast";
 import axios, { AxiosError } from "axios";
@@ -49,7 +46,7 @@ const page = () => {
   const [isCommentOpen, setIsCommentOpen] = useState<boolean>(false);
   const [showPostMenu, setShowPostMenu] = useState<string | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState<boolean>(false);
-  // const [likedPosts, setLikedPosts] = useState<Map<string, boolean>>(new Map());
+  const [likedPosts, setLikedPosts] = useState<Map<string, boolean>>(new Map());
 
   const form = useForm<z.infer<typeof postSchema>>({
     resolver: zodResolver(postSchema),
@@ -69,14 +66,22 @@ const page = () => {
     },
   });
 
-  const { register, watch, setValue } = form;
-
   const fetchPosts = useCallback(
     async (refresh: boolean = false) => {
       setIsLoading(true);
       try {
         const response = await axios.get("/api/get-posts-user");
-        setPosts(response.data.posts || []);
+        const fetchedPosts = response.data.posts || [];
+        setPosts(fetchedPosts);
+        const likedMap = new Map<string, boolean>();
+        fetchedPosts.forEach((post: Post) => {
+          likedMap.set(
+            post?._id as string,
+            Array.isArray(post.likes) &&
+              post.likes.includes(user?._id as string)
+          );
+        });
+        setLikedPosts(likedMap);
         if (refresh) {
           toast({
             title: "Refreshed posts",
@@ -96,7 +101,7 @@ const page = () => {
         setIsLoading(false);
       }
     },
-    [setIsLoading]
+    [setIsLoading, setPosts, setLikedPosts, user, toast]
   );
 
   const handleDeletePost = async (postId: string) => {
@@ -144,23 +149,67 @@ const page = () => {
   };
 
   const handleLikeToggle = async (postId: string) => {
+    setLikedPosts((prev) => {
+      const updated = new Map(prev);
+      updated.set(postId, !prev.get(postId));
+      return updated;
+    });
+
+    setPosts((prevPosts) =>
+      prevPosts.map((post) =>
+        post._id === postId
+          ? {
+              ...post,
+              likes: Array.isArray(post.likes)
+                ? post.likes.includes(user?._id as string)
+                  ? post.likes.filter((id) => id !== user?._id) // Unlike
+                  : [...post.likes, user?._id as string] // Like
+                : [user?._id as string], // Handle undefined likes
+            }
+          : post
+      )
+    );
+
     try {
       const post = posts.find((post) => post._id === postId);
       if (!post || !Array.isArray(post.likes)) {
-        throw new Error("Post not found or likes is not an array");
+        throw new Error("Post not found or likes is not a valid array");
       }
-      if ((post?.likes as string[]).includes(user?._id as string)) {
+      if (post.likes.includes(user?._id as string)) {
         await axios.delete(`/api/posts/${postId}/like`);
       } else {
         await axios.post(`/api/posts/${postId}/like`);
       }
     } catch (error) {
+      setLikedPosts((prev) => {
+        const updated = new Map(prev);
+        updated.set(postId, !prev.get(postId));
+        return updated;
+      });
+      setPosts((prevPosts) =>
+        prevPosts.map((post) =>
+          post._id === postId
+            ? {
+                ...post,
+                likes: Array.isArray(post.likes)
+                  ? post.likes.includes(user?._id as string)
+                    ? [...post.likes, user?._id as string]
+                    : post.likes.filter((id) => id !== user?._id)
+                  : post.likes,
+              }
+            : post
+        )
+      );
       toast({
         title: "Error",
         description: "An error occurred liking or unliking the post",
         variant: "destructive",
       });
     }
+  };
+
+  const handleFriendRequestsClick = async () => {
+    router.push("/u/friend-requests");
   };
 
   const onSubmit = async (post: z.infer<typeof postSchema>) => {
@@ -188,15 +237,21 @@ const page = () => {
     }
   };
 
-  const handleEditPost = async (post: z.infer<typeof postSchema>, postId: string) => {
+  const handleEditPost = async (
+    post: z.infer<typeof postSchema>,
+    postId: string
+  ) => {
     const isPublic = post.isPublic === "public";
     const requestData = {
       ...post,
       isPublic,
-      postId
+      postId,
     };
     try {
-      const response = await axios.patch(`/api/edit-post/${postId}`, requestData);
+      const response = await axios.patch(
+        `/api/edit-post/${postId}`,
+        requestData
+      );
       toast({
         title: "Success",
         description: response.data.message,
@@ -218,20 +273,24 @@ const page = () => {
   };
 
   const handleEditProfile = async (profile: z.infer<typeof profileSchema>) => {
-    const isPublic = profile.isPublic === "public";
+    const isPublic = profile.privacy === "public";
     const requestData = {
       ...profile,
       isPublic,
     };
     try {
-      const response = await axios.patch(`/api/profile/${user?._id}`, requestData);
+      const response = await axios.patch(
+        `/api/profile/${user?._id}`,
+        requestData
+      );
       toast({
         title: "Success",
         description: response.data.message,
       });
-      if(user){
+      if (user) {
         user.username = response.data.user.username;
         user.bio = response.data.user.bio;
+        user.privacy = response.data.user.privacy;
       }
     } catch (error) {
       const axiosError = error as AxiosError<ApiResponse>;
@@ -264,18 +323,27 @@ const page = () => {
     <div className="flex h-screen">
       {/* Left Side - Main Area */}
       <div className="w-3/4 bg-slate-50 p-6">
-        <h2
-          className="absolute top-6 left-[calc(100%-30%)] text-lg font-semibold text-blue-600 cursor-pointer hover:underline"
-          onClick={handleFriendsClick}
-        >
-          Friends
-        </h2>
         <Button
-          className="absolute top-6 left-[calc(100%-40%)] text-lg font-semibold"
+          className="absolute top-6 left-[calc(100%-32%)] text-lg font-semibold"
           onClick={handleLogout}
         >
           Logout
         </Button>
+        <h2
+          className="absolute top-6 left-[calc(100%-38%)] text-lg font-semibold text-blue-600 cursor-pointer hover:underline"
+          onClick={handleFriendsClick}
+        >
+          Friends
+        </h2>
+        {user?.privacy === "private" && (
+          <h2
+            className="absolute top-6 left-[calc(100%-48%)] text-lg font-semibold text-blue-600 cursor-pointer hover:underline"
+            onClick={handleFriendRequestsClick}
+          >
+            Friend Requests
+          </h2>
+        )}
+
         {/* Username and Bio */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-slate-900">
@@ -285,18 +353,20 @@ const page = () => {
         </div>
         <Dialog open={isEditingProfile} onOpenChange={setIsEditingProfile}>
           <DialogTrigger asChild>
-            <Button className="absolute top-6 left-[calc(100%-50%)] text-lg font-semibold">Edit Profile</Button>
+            <Button className="absolute top-6 left-[calc(100%-58%)] text-lg font-semibold">
+              Edit Profile
+            </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogTitle>Edit your Profile</DialogTitle>
             <Form {...userForm}>
               <form
-                onSubmit={userForm.handleSubmit(handleEditProfile)} 
+                onSubmit={userForm.handleSubmit(handleEditProfile)}
                 className="space-y-6"
               >
                 <FormField
                   name="username"
-                  control={userForm.control} 
+                  control={userForm.control}
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Username</FormLabel>
@@ -317,9 +387,8 @@ const page = () => {
                     </FormItem>
                   )}
                 />
-
                 <FormField
-                  name="isPublic"
+                  name="privacy"
                   control={userForm.control}
                   render={({ field }) => (
                     <FormItem>
@@ -327,6 +396,7 @@ const page = () => {
                       <select
                         className="border rounded-md p-2"
                         {...field}
+                        value={field.value || "public"}
                       >
                         <option value="public">Public</option>
                         <option value="private">Private</option>
@@ -343,7 +413,7 @@ const page = () => {
 
             <Button onClick={() => setIsEditingProfile(false)}>Close</Button>
           </DialogContent>
-        </Dialog>  
+        </Dialog>
 
         {/* Separator */}
         <Separator className="my-4" />
@@ -382,7 +452,7 @@ const page = () => {
                   )}
                 />
                 <FormField
-                  name="isPublic"
+                  name="privacy"
                   control={form.control}
                   render={({ field }) => (
                     <FormItem>
@@ -396,7 +466,11 @@ const page = () => {
                   )}
                 />
 
-                <Button className="w-full" type="submit" onClick={() => setIsOpen(false)}>
+                <Button
+                  className="w-full"
+                  type="submit"
+                  onClick={() => setIsOpen(false)}
+                >
                   Add
                 </Button>
               </form>
@@ -420,7 +494,7 @@ const page = () => {
                   onClick={() => handleLikeToggle(post._id as string)}
                   className="mt-2 w-10 h-10 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full flex items-center justify-center shadow-md transition-transform transform hover:scale-105 active:scale-95"
                 >
-                  {post.likes?.includes(user?._id as string) ? "❤️" : "🤍"}
+                  {likedPosts.get(post?._id as string) ? "❤️" : "🤍"}
                 </button>
               </div>
               {/* Three-dot Menu */}
@@ -466,7 +540,9 @@ const page = () => {
                       <DialogTitle>Edit Post</DialogTitle>
                       <Form {...form}>
                         <form
-                          onSubmit={form.handleSubmit((formData) => handleEditPost(formData, post._id as string))}
+                          onSubmit={form.handleSubmit((formData) =>
+                            handleEditPost(formData, post._id as string)
+                          )}
                           className="space-y-6"
                         >
                           <FormField
@@ -475,10 +551,7 @@ const page = () => {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Title</FormLabel>
-                                <Input
-                                  placeholder={post.title}
-                                  {...field}
-                                />
+                                <Input placeholder={post.title} {...field} />
                                 <FormMessage />
                               </FormItem>
                             )}
@@ -489,10 +562,7 @@ const page = () => {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Content</FormLabel>
-                                <Input
-                                  placeholder={post.content}
-                                  {...field}
-                                />
+                                <Input placeholder={post.content} {...field} />
                                 <FormMessage />
                               </FormItem>
                             )}
@@ -514,7 +584,11 @@ const page = () => {
                               </FormItem>
                             )}
                           />
-                          <Button className="w-full" type="submit" onClick={() => setIsOpen(false)}>
+                          <Button
+                            className="w-full"
+                            type="submit"
+                            onClick={() => setIsOpen(false)}
+                          >
                             Done
                           </Button>
                         </form>
