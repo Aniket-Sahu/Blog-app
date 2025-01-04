@@ -66,10 +66,6 @@ export async function PATCH(
         { status: 400 }
       );
     }
-
-    console.log(userProfile.privacy);
-    console.log(isPublic);
-    
     userProfile.username = username;
     userProfile.bio = bio;
     userProfile.privacy = isPublic ? "public" : "private";

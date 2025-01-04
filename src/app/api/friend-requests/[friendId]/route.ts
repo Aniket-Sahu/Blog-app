@@ -27,6 +27,7 @@ export async function POST(
     const friendReq = await FriendRequest.findOne({
       senderId: friendIdObj,
       receiverId: userId,
+      status: "pending"
     });
 
     if (!friendReq) {
@@ -97,6 +98,7 @@ export async function DELETE(
     const friendReq = await FriendRequest.findOne({
       senderId: friendIdObj,
       receiverId: userId,
+      status: "pending"
     });
 
     if (!friendReq) {

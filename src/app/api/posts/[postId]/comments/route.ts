@@ -7,7 +7,7 @@ import { getServerSession } from "next-auth";
 
 export async function POST(
   request: Request,
-  { params }: { params:  Promise<{ postId: string }> }
+  { params }: { params: Promise<{ postId: string }> }
 ) {
   await dbConnect();
   const { postId } = await params;
@@ -55,9 +55,20 @@ export async function POST(
     });
 
     await newComment.save();
+    await newComment.populate("userId", "username");
+
+    const newUpdatedComment = {
+      ...newComment.toObject(),
+      createdAt: new Date(newComment.createdAt),
+      updatedAt: new Date(newComment.updatedAt),
+    };
 
     return new Response(
-      JSON.stringify({ success: true, message: "comment posted" }),
+      JSON.stringify({
+        success: true,
+        message: "comment posted",
+        comment: newUpdatedComment,
+      }),
       { status: 201 }
     );
   } catch (error) {
@@ -71,7 +82,7 @@ export async function POST(
 
 export async function GET(
   request: Request,
-  { params }: { params:  Promise<{ postId: string }> }
+  { params }: { params: Promise<{ postId: string }> }
 ) {
   await dbConnect();
   const { postId } = await params;
@@ -101,8 +112,30 @@ export async function GET(
       );
     }
 
-    const comments = await Comment.find({ postId }).sort({ createdAt: -1 });
-    return new Response(JSON.stringify({ comments }), { status: 200 });
+    const comments = await Comment.find({ postId })
+      .sort({ createdAt: -1 })
+      .populate("userId", "username");
+
+    if (comments.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "No comments found",
+          comments: [], 
+        }),
+        { status: 200 }
+      );
+    }
+
+    const formattedComments = comments.map((comment) => ({
+      ...comment.toObject(),
+      createdAt: new Date(comment.createdAt),
+      updatedAt: new Date(comment.updatedAt),
+    }));
+
+    return new Response(JSON.stringify({ comments: formattedComments }), {
+      status: 200,
+    });
   } catch (error) {
     console.error("Error fetching comments:", error);
     return new Response(

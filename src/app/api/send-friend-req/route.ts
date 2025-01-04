@@ -54,7 +54,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Case where a private user sends a request to a public user: directly add as friends
     if (user.privacy === "private" && targetUser.privacy === "public") {
       if (user.friends.includes(toUserId)) {
         return new Response(
@@ -75,14 +74,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // If both users have private accounts, create a friend request
     if (user.privacy === "private" && targetUser.privacy === "private") {
       const existingRequest = await FriendRequest.findOne({
         senderId: userObjectId,
         receiverId: toUserObjectId,
       });
 
-      if (existingRequest) {
+      if (existingRequest?.status === "pending") {
         return new Response(
           JSON.stringify({
             success: false,
@@ -111,7 +109,7 @@ export async function POST(request: Request) {
         receiverId: toUserObjectId,
       });
 
-      if (existingRequest) {
+      if (existingRequest?.status === "pending") {
         return new Response(
           JSON.stringify({
             success: false,
