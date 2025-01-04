@@ -21,7 +21,6 @@ const page = ({ params }: { params: Promise<{ userId: string }> }) => {
   const { userId } = use(params);
   const [userFriends, setUserFriends] = useState<Profile[]>([]);
   const [isFriend, setIsFriend] = useState<boolean>(false);
-  const [isCommentOpen, setIsCommentOpen] = useState<boolean>(false);
   const [likedPosts, setLikedPosts] = useState<Map<string, boolean>>(new Map());
   const [friendsLoaded, setFriendsLoaded] = useState(false);
   const [openComment, setOpenComment] = useState<Map<string, boolean>>(
@@ -398,7 +397,6 @@ const page = ({ params }: { params: Promise<{ userId: string }> }) => {
             </button>
           )}
         </div>
-        {/* Separator */}
         <Separator className="my-4" />
         {/* Posts Section */}
         <div className="space-y-6">
@@ -422,7 +420,6 @@ const page = ({ params }: { params: Promise<{ userId: string }> }) => {
                     </h3>
                     <p className="text-slate-600">{post.content}</p>
                     <div className="mt-2 flex space-x-2">
-                      {/* Like Button */}
                       <button
                         onClick={() => handleLikeToggle(post._id as string)}
                         className="w-10 h-10 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full flex items-center justify-center shadow-md transition-transform transform hover:scale-105 active:scale-95"
@@ -430,15 +427,13 @@ const page = ({ params }: { params: Promise<{ userId: string }> }) => {
                         {likedPosts.get(post?._id as string) ? "❤️" : "🤍"}
                       </button>
 
-                      {/* Comment Button */}
                       <button
                         onClick={() => handleCommentToggle(post._id as string)}
                         className="w-10 h-10 bg-green-100 hover:bg-green-200 text-green-600 rounded-full flex items-center justify-center shadow-md transition-transform transform hover:scale-105 active:scale-95"
                       >
                         💬
                       </button>
-
-                      {/* Share Button */}
+                      
                       <button
                         onClick={() => handleShare(post._id as string)}
                         className="w-10 h-10 bg-purple-100 hover:bg-purple-200 text-purple-600 rounded-full flex items-center justify-center shadow-md transition-transform transform hover:scale-105 active:scale-95"

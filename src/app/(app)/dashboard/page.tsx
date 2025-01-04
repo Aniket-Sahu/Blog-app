@@ -1,7 +1,5 @@
 "use client";
 
-// now what's left is comments, and share (which will be a copy link until later changes) -> Do it on 4th Jan
-
 import { useToast } from "@/hooks/use-toast";
 import axios, { AxiosError } from "axios";
 import { useRouter } from "next/navigation";
@@ -547,7 +545,6 @@ const page = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Separator */}
         <Separator className="my-4" />
         {/* Add Post Button */}
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -623,7 +620,6 @@ const page = () => {
                 </h3>
                 <p className="text-slate-600">{post.content}</p>
                 <div className="mt-2 flex space-x-2">
-                  {/* Like Button */}
                   <button
                     onClick={() => handleLikeToggle(post._id as string)}
                     className="w-10 h-10 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full flex items-center justify-center shadow-md transition-transform transform hover:scale-105 active:scale-95"
@@ -631,7 +627,6 @@ const page = () => {
                     {likedPosts.get(post?._id as string) ? "❤️" : "🤍"}
                   </button>
 
-                  {/* Comment Button */}
                   <button
                     onClick={() => handleCommentToggle(post._id as string)}
                     className="w-10 h-10 bg-green-100 hover:bg-green-200 text-green-600 rounded-full flex items-center justify-center shadow-md transition-transform transform hover:scale-105 active:scale-95"
@@ -639,7 +634,6 @@ const page = () => {
                     💬
                   </button>
 
-                  {/* Share Button */}
                   <button
                     onClick={() => handleShare(post._id as string)}
                     className="w-10 h-10 bg-purple-100 hover:bg-purple-200 text-purple-600 rounded-full flex items-center justify-center shadow-md transition-transform transform hover:scale-105 active:scale-95"
@@ -719,7 +713,6 @@ const page = () => {
                   </div>
                 )}
               </div>
-              {/* Three-dot Menu */}
               <div className="absolute top-4 right-4">
                 <button
                   onClick={() =>
@@ -733,7 +726,6 @@ const page = () => {
                 >
                   ...
                 </button>
-                {/* Dropdown Menu */}
                 {showPostMenu === post._id && (
                   <div className="absolute right-0 mt-2 bg-white border border-slate-200 rounded shadow-lg w-32">
                     <button
@@ -843,7 +835,6 @@ const page = () => {
         />
         {/* Users List */}
         <div className="mt-4 space-y-4">
-          {/* Replace with dynamic users */}
           {users.map((user, index) => (
             <div
               key={index}
