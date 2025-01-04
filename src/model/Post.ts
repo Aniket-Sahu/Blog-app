@@ -6,7 +6,6 @@ export interface IPost extends Document {
   content: string;
   privacy: "public" | "private";
   likes: Types.ObjectId[];
-  comments: Types.ObjectId[];
   createdAt: Date; 
   updatedAt: Date;
 }
@@ -21,8 +20,7 @@ const postSchema: Schema<IPost> = new mongoose.Schema(
     title: { type: String, required: true, maxLength: 20 },
     content: { type: String, required: true, maxlength: 2500 },
     privacy: { type: String, enum: ["public", "private"], default: "public" },
-    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    comments: [{ type: mongoose.Schema.Types.ObjectId, ref: "Comment" }],
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
   },
   { timestamps: true }
 );

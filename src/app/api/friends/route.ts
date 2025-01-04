@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     }
 
     const dbUser = await User.findById(user._id)
-      .populate("friends", "_id username bio privacy") // Make sure to populate here
+      .populate("friends", "_id username bio privacy") 
       .exec();
 
     if (!dbUser) {

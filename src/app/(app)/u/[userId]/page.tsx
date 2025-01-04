@@ -23,6 +23,7 @@ const page = ({ params }: { params: Promise<{ userId: string }> }) => {
   const [isFriend, setIsFriend] = useState<boolean>(false);
   const [isCommentOpen, setIsCommentOpen] = useState<boolean>(false);
   const [likedPosts, setLikedPosts] = useState<Map<string, boolean>>(new Map());
+  const [friendsLoaded, setFriendsLoaded] = useState(false);
   const [openComment, setOpenComment] = useState<Map<string, boolean>>(
     new Map()
   );
@@ -33,78 +34,82 @@ const page = ({ params }: { params: Promise<{ userId: string }> }) => {
   const fetchUserFriends = async () => {
     try {
       const response = await axios.get(`/api/friends`);
-      setUserFriends(response.data.friends || []);
+      setUserFriends(response.data.friends);
     } catch (error) {
       toast({
         title: "Error",
         description: "An error occurred fetching user friends",
         variant: "destructive",
       });
+    } finally {
+      setFriendsLoaded(true);
+    }
+  };
+
+  const getProfileAndPosts = async () => {
+    try {
+      await fetchUserFriends();
+      const profileResponse = await axios.get(`/api/profile/${userId}`);
+      const profile = profileResponse.data.profile;
+      setUserProfile(profile);
+
+      const isPublic = profile.privacy === "public";
+      const isFriend = userFriends.some(
+        (friend) => friend._id?.toString() === userId.toString()
+      );
+
+      if (isFriend) {
+        setIsFriend(true);
+      }
+
+      if (isPublic || isFriend) {
+        setIsLoading(true);
+        try {
+          const response = await axios.get(`/api/get-posts/${userId}`);
+          const fetchedPosts = response.data.posts || [];
+          setPosts(fetchedPosts);
+          const likedMap = new Map<string, boolean>();
+          fetchedPosts.forEach((post: Post) => {
+            likedMap.set(
+              post?._id as string,
+              Array.isArray(post.likes) &&
+                post.likes.includes(user?._id as string)
+            );
+          });
+          setLikedPosts(likedMap);
+        } catch (error) {
+          toast({
+            title: "Error",
+            description: "An error occurred fetching posts",
+            variant: "destructive",
+          });
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An error occurred fetching the profile",
+        variant: "destructive",
+      });
     }
   };
 
   useEffect(() => {
-    fetchUserFriends();
+    if (userFriends.length === 0 && !friendsLoaded) {
+      fetchUserFriends();
+    }
+
+    if (friendsLoaded) {
+      getProfileAndPosts();
+    }
+  }, [userId, friendsLoaded]);
+
+  useEffect(() => {
     const url = `${window.location.protocol}//${window.location.host}`;
     setBaseUrl(url);
   }, []);
-
-  useEffect(() => {
-    const getProfileAndPosts = async () => {
-      try {
-        const profileResponse = await axios.get(`/api/profile/${userId}`);
-        const profile = profileResponse.data.profile;
-        setUserProfile(profile);
-
-        const isPublic = profile.privacy === "public";
-        const isFriend = userFriends.some(
-          (friend) => friend._id?.toString() === userId.toString()
-        );
-
-        if (isFriend) {
-          setIsFriend(true);
-        }
-
-        if (isPublic || isFriend) {
-          setIsLoading(true);
-          try {
-            const response = await axios.get(`/api/get-posts/${userId}`);
-            const fetchedPosts = response.data.posts || [];
-            setPosts(fetchedPosts);
-            const likedMap = new Map<string, boolean>();
-            fetchedPosts.forEach((post: Post) => {
-              likedMap.set(
-                post?._id as string,
-                Array.isArray(post.likes) &&
-                  post.likes.includes(user?._id as string)
-              );
-            });
-            setLikedPosts(likedMap);
-          } catch (error) {
-            toast({
-              title: "Error",
-              description: "An error occurred fetching posts",
-              variant: "destructive",
-            });
-          } finally {
-            setIsLoading(false);
-          }
-        }
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "An error occurred fetching the profile",
-          variant: "destructive",
-        });
-      }
-    };
-
-    if (userFriends.length === 0) {
-      fetchUserFriends();
-    }
-    getProfileAndPosts();
-    console.log(userprofile);
-  }, [userId, toast]);
 
   const handleLikeToggle = async (postId: string) => {
     setLikedPosts((prev) => {
@@ -138,7 +143,6 @@ const page = ({ params }: { params: Promise<{ userId: string }> }) => {
       } else {
         await axios.post(`/api/posts/${postId}/like`);
       }
-      fetchUserFriends();
     } catch (error) {
       setLikedPosts((prev) => {
         const updated = new Map(prev);
@@ -166,10 +170,6 @@ const page = ({ params }: { params: Promise<{ userId: string }> }) => {
       });
     }
   };
-
-  useEffect(() => {
-    console.log(userprofile);
-  }, [userprofile]);
 
   const handleAddFriend = async () => {
     try {
@@ -316,8 +316,16 @@ const page = ({ params }: { params: Promise<{ userId: string }> }) => {
     }
   };
 
-  const handleDeleteComment = async (postId: string, commentId: string) => {
+  const handleDeleteComment = async (postId: string, commentId: string, username: string) => {
     try {
+      console.log("You are not authorized to delete this comment");
+      if(username !== user?.username) {
+        return toast({
+          title: "error",
+          description: "You are not authorized to delete this comment",
+          variant: "destructive",
+        })
+      }
       const response = await axios.delete(
         `/api/posts/${postId}/comments/${commentId}`
       );
@@ -386,7 +394,7 @@ const page = ({ params }: { params: Promise<{ userId: string }> }) => {
             >
               {userprofile?.privacy === "public"
                 ? "Remove Friend"
-                : "Remove Request"}
+                : "Remove Request/Friend"}
             </button>
           )}
         </div>
@@ -395,7 +403,7 @@ const page = ({ params }: { params: Promise<{ userId: string }> }) => {
         {/* Posts Section */}
         <div className="space-y-6">
           {posts.length === 0 ? (
-            userprofile?.privacy === "private" ? (
+            userprofile?.privacy === "private" && !isFriend ? (
               <>You need to add them to see their posts</>
             ) : (
               <>User has no posts</>
@@ -498,7 +506,8 @@ const page = ({ params }: { params: Promise<{ userId: string }> }) => {
                                 onClick={() =>
                                   handleDeleteComment(
                                     post._id as string,
-                                    comment._id
+                                    comment._id,
+                                    comment.username as string
                                   )
                                 }
                                 className="text-red-500 hover:text-red-700 text-sm"

@@ -15,7 +15,6 @@ export const postSchema = z.object({
     createdAt: z.date().optional(),
     updatedAt: z.date().optional(),
     likes: z.array(z.string()).optional(),
-    comments: z.array(z.string()).optional(),
 });
 
 
